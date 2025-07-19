@@ -1,8 +1,9 @@
 import './style.css'
 import * as THREE from "three"
-import waterFragmentShader from "./shaders/water/fragment.frag"
-import waterVertexShader from "./shaders/water/vertex.vert"
+import waterFragmentShader from "./shaders/water/fragment.glsl"
+import waterVertexShader from "./shaders/water/vertex.glsl"
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import GUI from 'lil-gui'
 
 /**
  * Init
@@ -12,6 +13,10 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 camera.position.set(0.7, 0.6, 0.7)
 scene.add(camera)
 
+const debugObject = {}
+debugObject.depthColor = "#0000b3"
+debugObject.surfaceColor = "#6666ff"
+
 
 /**
  * Plane
@@ -19,11 +24,33 @@ scene.add(camera)
 const planeGeom = new THREE.PlaneGeometry(1, 1, 128, 128)
 const planeMaterial = new THREE.ShaderMaterial({
   vertexShader: waterVertexShader,
-  fragmentShader: waterFragmentShader
+  fragmentShader: waterFragmentShader,
+  side: THREE.DoubleSide,
+  uniforms: {
+    uTime: { value: 0},
+    uBigWavesElevation: { value: 0.1 },
+    uBigWavesFrequency: { value: new THREE.Vector2(5, 2)},
+    uBigWavesSpeed: { value: 0.75 },
+    uDepthColor: { value: new THREE.Color(debugObject.depthColor) },
+    uSurfaceColor: { value: new THREE.Color(debugObject.surfaceColor) },
+    uColorMultiplier: { value: 2.3 },
+    uColorOffset: { value: 0.2 }
+  }
 })
 const plane = new THREE.Mesh(planeGeom, planeMaterial)
 plane.rotation.x = - Math.PI * 0.5
 scene.add(plane)
+
+
+const gui = new GUI({ width: 400 })
+gui.add(planeMaterial.uniforms.uBigWavesElevation, "value", 0.01, 1, 0.01).name("Big Waves Elevation")
+gui.add(planeMaterial.uniforms.uBigWavesFrequency.value, "x", 0, 10, 0.01).name("Big Waves Freq X")
+gui.add(planeMaterial.uniforms.uBigWavesFrequency.value, "y", 0, 10, 0.01).name("Big Waves Freq Y")
+gui.add(planeMaterial.uniforms.uBigWavesSpeed, "value", 0.1, 10, 0.01).name("Big Waves Speed")
+gui.add(planeMaterial.uniforms.uColorMultiplier, "value", 0.01, 5.0, 0.01).name("Color Multiplier")
+gui.add(planeMaterial.uniforms.uColorOffset, "value", 0.01, 2.0, 0.01).name("Color Offset")
+gui.addColor(debugObject, "depthColor").name("Depth Color").onChange((_value) => planeMaterial.uniforms.uDepthColor.value.set(_value))
+gui.addColor(debugObject, "surfaceColor").name("Surface Color").onChange((_value) => planeMaterial.uniforms.uSurfaceColor.value.set(_value))
 
 /**
  * Renderer
@@ -43,9 +70,12 @@ window.addEventListener("resize", () => {
 const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
 
-
+const clock = new THREE.Clock()
 const tick = () => {
   requestAnimationFrame(tick)
+
+  const elapsedTime = clock.getElapsedTime()
+  planeMaterial.uniforms.uTime.value = elapsedTime
 
   controls.update()
   renderer.render(scene, camera)
